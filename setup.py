@@ -17,7 +17,7 @@ setup(
         "crosstl/src/backend/Metal/",
         "crosstl/src/backend/Opengl/",
     ],
-    version="0.0.0.15",
+    version="0.0.1.3",
     author="CrossGL team",
     author_email="vaatsalya@crossgl.net",
     description="CrossGL: Revolutionizing Shader Development",
@@ -31,6 +31,6 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.10",
+    python_requires=">=3.8",
     install_requires=["gast", "pytest"],
 )

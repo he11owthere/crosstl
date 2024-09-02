@@ -1,8 +1,8 @@
-from .MetalLexer import *
-from .MetalAst import *
+from MojoLexer import *
+from MojoAst import *
 
 
-class MetalParser:
+class MojoParser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
@@ -24,77 +24,108 @@ class MetalParser:
             raise SyntaxError(f"Expected {token_type}, got {self.current_token[0]}")
 
     def parse(self):
-        shader = self.parse_shader()
+        module = self.parse_module()
         self.eat("EOF")
-        return shader
+        return module
 
-    def parse_shader(self):
-        functions = []
+    def parse_module(self):
+        statements = []
 
         while self.current_token[0] != "EOF":
-            if self.current_token[0] == "PREPROCESSOR":
-                self.parse_preprocessor_directive()
-            elif self.current_token[0] == "USING":
-                self.parse_using_statement()
+            if self.current_token[0] == "IMPORT":
+                statements.append(self.parse_import_statement())
             elif self.current_token[0] == "STRUCT":
-                functions.append(self.parse_struct())
+                statements.append(self.parse_struct())
+            elif self.current_token[0] == "CLASS":
+                statements.append(self.parse_class())
             elif self.current_token[0] == "CONSTANT":
-                functions.append(self.parse_constant_buffer())
-            elif self.current_token[0] in [
-                "VERTEX",
-                "FRAGMENT",
-                "KERNEL",
-                "VOID",
-                "FLOAT",
-                "HALF",
-                "INT",
-                "UINT",
-                "BOOL",
-                "VECTOR",
-                "IDENTIFIER",
-            ]:
-                functions.append(self.parse_function())
+                statements.append(self.parse_constant_buffer())
+            elif self.current_token[0] == "FN":
+                statements.append(self.parse_function())
+            elif self.current_token[0] in ["LET", "VAR"]:
+                statements.append(self.parse_variable_declaration_or_assignment())
+            elif self.current_token[0] == "DECORATOR":
+                statements.append(self.parse_decorator())
             else:
-                self.eat(self.current_token[0])  # Skip unknown tokens
-
-        return ShaderNode(functions)
-
-    def parse_preprocessor_directive(self):
-        self.eat("PREPROCESSOR")
-        if self.current_token[0] == "LESS_THAN":
-            self.eat("LESS_THAN")
-            while self.current_token[0] != "GREATER_THAN":
                 self.eat(self.current_token[0])
-            self.eat("GREATER_THAN")
-        elif self.current_token[0] == "STRING":
-            self.eat("STRING")
 
-    def parse_using_statement(self):
-        self.eat("USING")
-        self.eat("NAMESPACE")
-        self.eat("METAL")
-        self.eat("SEMICOLON")
+        return ShaderNode(statements)
+
+    def parse_import_statement(self):
+        self.eat("IMPORT")
+        module_name = self.current_token[1]
+        self.eat("IDENTIFIER")
+        alias = None
+        if self.current_token[0] == "AS":
+            self.eat("AS")
+            alias = self.current_token[1]
+            self.eat("IDENTIFIER")
+        if self.current_token[0] == "SEMICOLON":
+            self.eat("SEMICOLON")
+        return ImportNode(module_name, alias)
 
     def parse_struct(self):
         self.eat("STRUCT")
         name = self.current_token[1]
         self.eat("IDENTIFIER")
+
+        self.eat("COLON")
+
+        members = []
+        while (
+            self.current_token[0] != "EOF"
+            and self.current_token[0] != "FN"
+            and self.current_token[0] != "STRUCT"
+            and self.current_token[0] != "CLASS"
+        ):
+            vtype = None
+            if self.current_token[0] == "LET" or self.current_token[0] == "VAR":
+                vtype = self.current_token[1]
+                self.eat(self.current_token[0])
+
+            var_name = self.current_token[1]
+            self.eat("IDENTIFIER")
+
+            # Handle the colon followed by the type
+            if self.current_token[0] == "COLON":
+                self.eat("COLON")
+                vtype = self.current_token[1]
+                self.eat(self.current_token[0])
+
+            attributes = self.parse_attributes()
+
+            members.append(VariableNode(vtype, var_name, attributes))
+
+        return StructNode(name, members)
+
+    def parse_class(self):
+        self.eat("CLASS")
+        name = self.current_token[1]
+        self.eat("IDENTIFIER")
+        base_classes = []
+        if self.current_token[0] == "LPAREN":
+            self.eat("LPAREN")
+            while self.current_token[0] != "RPAREN":
+                base_classes.append(self.current_token[1])
+                self.eat("IDENTIFIER")
+                if self.current_token[0] == "COMMA":
+                    self.eat("COMMA")
+            self.eat("RPAREN")
         self.eat("LBRACE")
 
         members = []
         while self.current_token[0] != "RBRACE":
-            vtype = self.current_token[1]
-            self.eat(self.current_token[0])  # Eat the type
-            var_name = self.current_token[1]
-            self.eat("IDENTIFIER")
-            attributes = self.parse_attributes()
-            self.eat("SEMICOLON")
-            members.append(VariableNode(vtype, var_name, attributes))
+            if self.current_token[0] == "FN":
+                members.append(self.parse_function())
+            elif self.current_token[0] in ["LET", "VAR"]:
+                members.append(self.parse_variable_declaration_or_assignment())
+            elif self.current_token[0] == "CLASS":
+                members.append(self.parse_class())
+            else:
+                self.eat(self.current_token[0])  # Skip unk
 
         self.eat("RBRACE")
-        self.eat("SEMICOLON")
-
-        return StructNode(name, members)
+        return ClassNode(name, base_classes, members)
 
     def parse_constant_buffer(self):
         self.eat("CONSTANT")
@@ -105,7 +136,7 @@ class MetalParser:
         members = []
         while self.current_token[0] != "RBRACE":
             vtype = self.current_token[1]
-            self.eat(self.current_token[0])  # Eat the type
+            self.eat(self.current_token[0])
             var_name = self.current_token[1]
             self.eat("IDENTIFIER")
             self.eat("SEMICOLON")
@@ -119,19 +150,11 @@ class MetalParser:
         attributes = self.parse_attributes()
 
         qualifier = None
-        if self.current_token[0] in ["VERTEX", "FRAGMENT", "KERNEL"]:
+        if self.current_token[0] == "FN":
             qualifier = self.current_token[1]
             self.eat(self.current_token[0])
 
-        return_type = self.current_token[1]
-        self.eat(self.current_token[0])
-
-        # Handle potential second qualifier after return type
-        if self.current_token[0] in ["VERTEX", "FRAGMENT", "KERNEL"]:
-            if qualifier is None:
-                qualifier = self.current_token[1]
-            self.eat(self.current_token[0])
-
+        return_type = None
         name = self.current_token[1]
         self.eat("IDENTIFIER")
 
@@ -139,7 +162,13 @@ class MetalParser:
         params = self.parse_parameters()
         self.eat("RPAREN")
 
-        # Handle possible attribute after parameters
+        if self.current_token[0] == "MINUS":
+            self.eat("MINUS")
+            if self.current_token[0] == "GREATER_THAN":
+                self.eat("GREATER_THAN")
+                return_type = self.current_token[1]
+                self.eat(self.current_token[0])
+
         post_attributes = self.parse_attributes()
         attributes.extend(post_attributes)
 
@@ -151,52 +180,45 @@ class MetalParser:
         params = []
         while self.current_token[0] != "RPAREN":
             attributes = self.parse_attributes()
-            if self.current_token[0] in [
-                "FLOAT",
-                "HALF",
-                "INT",
-                "UINT",
-                "BOOL",
-                "VECTOR",
-                "IDENTIFIER",
-                "TEXTURE2D",
-                "SAMPLER",
-            ]:
+
+            if self.current_token[0] in ["FLOAT", "INT", "UINT", "BOOL", "IDENTIFIER"]:
                 vtype = self.current_token[1]
                 self.eat(self.current_token[0])
 
-                if self.current_token[0] == "LESS_THAN":
-                    self.eat("LESS_THAN")
-                    if self.current_token[0] in ["FLOAT", "INT", "UINT", "VECTOR"]:
-                        vtype += f"<{self.current_token[1]}>"
-                        self.eat(self.current_token[0])
-                    self.eat("GREATER_THAN")
+                # Handle the case where there's a colon indicating a type annotation
+                if self.current_token[0] == "COLON":
+                    self.eat("COLON")
+                    vtype = self.current_token[
+                        1
+                    ]  # Update the type to the one after colon
+                    self.eat(self.current_token[0])
 
+                name = ""
                 if self.current_token[0] == "IDENTIFIER":
                     name = self.current_token[1]
                     self.eat("IDENTIFIER")
-                else:
-                    name = ""  # Handle case where there's no explicit parameter name
 
                 param_attributes = self.parse_attributes()
                 attributes.extend(param_attributes)
 
                 params.append(VariableNode(vtype, name, attributes))
+
             else:
-                # Handle unexpected token
                 raise SyntaxError(
                     f"Unexpected token in parameter list: {self.current_token[0]}"
                 )
 
             if self.current_token[0] == "COMMA":
                 self.eat("COMMA")
+                if self.current_token[0] == "RPAREN":
+                    raise SyntaxError("Trailing comma in parameter list is not allowed")
             elif self.current_token[0] == "RPAREN":
                 break
             else:
-                # Handle unexpected token
                 raise SyntaxError(
                     f"Expected comma or closing parenthesis, got {self.current_token[0]}"
                 )
+
         return params
 
     def parse_attributes(self):
@@ -206,7 +228,7 @@ class MetalParser:
             attr_parts = attr_content.split("(")
             if len(attr_parts) > 1:
                 name = attr_parts[0]
-                args = attr_parts[1][:-1].split(",")  # Remove closing ) and split args
+                args = attr_parts[1][:-1].split(",")
             else:
                 name = attr_content
                 args = []
@@ -215,151 +237,146 @@ class MetalParser:
         return attributes
 
     def parse_block(self):
+        if self.current_token[0] == "COLON":
+            self.eat("COLON")
+        elif self.current_token[0] == "LBRACE":
+            self.eat("LBRACE")
+        else:
+            raise SyntaxError(f"Expected COLON or LBRACE, got {self.current_token[0]}")
+
         statements = []
-        self.eat("LBRACE")
-        while self.current_token[0] != "RBRACE":
+        while self.current_token[0] != "RBRACE" and self.current_token[0] != "EOF":
             statements.append(self.parse_statement())
-        self.eat("RBRACE")
+
+        if self.current_token[0] == "RBRACE":
+            self.eat("RBRACE")
+
         return statements
 
     def parse_statement(self):
         if self.current_token[0] in [
             "FLOAT",
-            "HALF",
             "INT",
             "UINT",
             "BOOL",
-            "VECTOR",
             "IDENTIFIER",
+            "LET",
+            "VAR",
         ]:
             return self.parse_variable_declaration_or_assignment()
+
+        elif self.current_token[0] == "FN":
+            return self.parse_function()
         elif self.current_token[0] == "IF":
             return self.parse_if_statement()
         elif self.current_token[0] == "FOR":
             return self.parse_for_statement()
+        elif self.current_token[0] == "WHILE":
+            return self.parse_while_statement()
         elif self.current_token[0] == "RETURN":
             return self.parse_return_statement()
+        elif self.current_token[0] == "SWITCH":
+            return self.parse_switch_statement()
+        elif self.current_token[0] == "STRUCT":
+            return self.parse_struct()
         else:
             return self.parse_expression_statement()
 
     def parse_variable_declaration_or_assignment(self):
-        if self.current_token[0] in [
-            "FLOAT",
-            "FVECTOR",
-            "INT",
-            "UINT",
-            "BOOL",
-            "IDENTIFIER",
-        ]:
-            first_token = self.current_token
+        if self.current_token[0] in ["LET", "VAR"]:
+            var_type = self.current_token[0]
             self.eat(self.current_token[0])
+            name = self.current_token[1]
+            self.eat("IDENTIFIER")
 
-            if self.current_token[0] == "IDENTIFIER":
-                name = self.current_token[1]
-                self.eat("IDENTIFIER")
-                if self.current_token[0] == "SEMICOLON":
-                    self.eat("SEMICOLON")
-                    return VariableNode(first_token[1], name)
-                elif self.current_token[0] == "EQUALS":
-                    self.eat("EQUALS")
-                    value = self.parse_expression()
-                    self.eat("SEMICOLON")
-                    return AssignmentNode(VariableNode(first_token[1], name), value)
-            elif self.current_token[0] == "EQUALS":
-                # This handles cases like "test = float3(1.0, 1.0, 1.0);"
+            if self.current_token[0] == "COLON":
+                self.eat("COLON")
+                self.current_token[1]
+                self.eat(self.current_token[0])
+
+            initial_value = None
+            if self.current_token[0] == "EQUALS":
                 self.eat("EQUALS")
-                value = self.parse_expression()
+                initial_value = self.parse_expression()
+
+            # Only eat semicolon if it's actually present
+            if self.current_token[0] == "SEMICOLON":
                 self.eat("SEMICOLON")
-                return AssignmentNode(VariableNode("", first_token[1]), value)
-            elif self.current_token[0] == "DOT":
-                left = self.parse_member_access(first_token[1])
-                if self.current_token[0] == "EQUALS":
-                    self.eat("EQUALS")
-                    right = self.parse_expression()
-                    self.eat("SEMICOLON")
-                    return AssignmentNode(left, right)
-                else:
-                    self.eat("SEMICOLON")
-                    return left
-            else:
-                if self.current_token[0] in [
-                    "PLUS_EQUALS",
-                    "MINUS_EQUALS",
-                    "MULTIPLY_EQUALS",
-                    "DIVIDE_EQUALS",
-                    "EQUAL",
-                ]:
-                    op = self.current_token[1]
-                    self.eat(self.current_token[0])
-                    expr = self.parse_expression()
-                    self.eat("SEMICOLON")
-                    return BinaryOpNode(VariableNode("", first_token[1]), op, expr)
-                    # This handles cases like "float3(1.0, 1.0, 1.0);"
-                else:
-                    expr = self.parse_expression()
-                    self.eat("SEMICOLON")
-                    return expr
+
+            return VariableDeclarationNode(var_type, name, initial_value)
         else:
-            expr = self.parse_expression()
-            self.eat("SEMICOLON")
-            return expr
+            return self.parse_assignment()
 
     def parse_if_statement(self):
-        if_chain = []
-        else_if_chain = []
+        self.eat("IF")
+        self.eat("LPAREN")
+        condition = self.parse_expression()
+        self.eat("RPAREN")
+        if_body = self.parse_block()
         else_body = None
-        while self.current_token[0] == "IF":
-            self.eat("IF")
-            self.eat("LPAREN")
-            condition = self.parse_expression()
-            self.eat("RPAREN")
-            body = self.parse_block()
-            if_chain.append((condition, body))
-        while self.current_token[0] == "ELSE_IF":
-            self.eat("ELSE_IF")
-            self.eat("LPAREN")
-            condition = self.parse_expression()
-            self.eat("RPAREN")
-            body = self.parse_block()
-            else_if_chain.append((condition, body))
-
         if self.current_token[0] == "ELSE":
             self.eat("ELSE")
             else_body = self.parse_block()
-
-        return IfNode(if_chain, else_if_chain, else_body)
+        return IfNode(condition, if_body, else_body)
 
     def parse_for_statement(self):
         self.eat("FOR")
         self.eat("LPAREN")
 
-        if self.current_token[0] in ["INT", "UINT"]:
-            type_name = self.current_token[1]
-            self.eat(self.current_token[0])
-            var_name = self.current_token[1]
-            self.eat("IDENTIFIER")
-            self.eat("EQUALS")
-            init_value = self.parse_expression()
-            init = VariableNode(type_name, var_name)
-            init = AssignmentNode(init, init_value)
-        else:
-            init = self.parse_expression()
+        init = self.parse_variable_declaration_or_assignment()
         self.eat("SEMICOLON")
-
         condition = self.parse_expression()
         self.eat("SEMICOLON")
-
         update = self.parse_expression()
         self.eat("RPAREN")
-
         body = self.parse_block()
 
         return ForNode(init, condition, update, body)
 
+    def parse_while_statement(self):
+        self.eat("WHILE")
+        self.eat("LPAREN")
+        condition = self.parse_expression()
+        self.eat("RPAREN")
+        body = self.parse_block()
+        return WhileNode(condition, body)
+
+    def parse_switch_statement(self):
+        self.eat("SWITCH")
+        self.eat("LPAREN")
+        expression = self.parse_expression()
+        self.eat("RPAREN")
+        self.eat("LBRACE")
+        cases = []
+        while self.current_token[0] != "RBRACE":
+            cases.append(self.parse_switch_case())
+        self.eat("RBRACE")
+        return SwitchNode(expression, cases)
+
+    def parse_switch_case(self):
+        if self.current_token[0] == "CASE":
+            self.eat("CASE")
+            condition = self.parse_expression()
+            self.eat("COLON")
+            body = self.parse_block()
+            return SwitchCaseNode(condition, body)
+        elif self.current_token[0] == "DEFAULT":
+            self.eat("DEFAULT")
+            self.eat("COLON")
+            body = self.parse_block()
+            return SwitchCaseNode(None, body)
+        else:
+            raise SyntaxError(
+                f"Unexpected token in switch case: {self.current_token[0]}"
+            )
+
     def parse_return_statement(self):
         self.eat("RETURN")
         value = self.parse_expression()
-        self.eat("SEMICOLON")
+
+        if self.current_token[0] == "SEMICOLON":
+            self.eat("SEMICOLON")
+
         return ReturnNode(value)
 
     def parse_expression_statement(self):
@@ -461,39 +478,43 @@ class MetalParser:
     def parse_primary(self):
         if self.current_token[0] in [
             "IDENTIFIER",
+            "NUMBER",
             "INT",
-            "UINT",
             "FLOAT",
-            "HALF",
             "BOOL",
-            "VECTOR",
+            "STRING",
         ]:
-            if self.current_token[0] in [
-                "INT",
-                "UINT",
-                "FLOAT",
-                "HALF",
-                "BOOL",
-                "VECTOR",
-            ]:
+            if self.current_token[0] in ["INT", "FLOAT", "BOOL", "STRING"]:
                 type_name = self.current_token[1]
                 self.eat(self.current_token[0])
                 if self.current_token[0] == "IDENTIFIER":
                     var_name = self.current_token[1]
                     self.eat("IDENTIFIER")
+                    if self.current_token[0] == "COLON":
+                        self.eat("COLON")
+                        type_annotation = self.current_token[1]
+                        self.eat(self.current_token[0])
+                        return VariableNode(type_annotation, var_name)
                     return VariableNode(type_name, var_name)
                 elif self.current_token[0] == "LPAREN":
-                    return self.parse_vector_constructor(type_name)
+                    return self.parse_function_call_or_identifier()
+            elif self.current_token[0] == "NUMBER":
+                value = self.current_token[1]
+                self.eat("NUMBER")
+                return value
+
             return self.parse_function_call_or_identifier()
-        elif self.current_token[0] == "NUMBER":
-            value = self.current_token[1]
-            self.eat("NUMBER")
-            return value
+
         elif self.current_token[0] == "LPAREN":
             self.eat("LPAREN")
             expr = self.parse_expression()
             self.eat("RPAREN")
             return expr
+
+        # Handle top-level keywords
+        elif self.current_token[0] in ["FN", "STRUCT", "CLASS", "LET", "VAR"]:
+            raise SyntaxError(f"Unexpected top-level keyword: {self.current_token[0]}")
+
         else:
             raise SyntaxError(
                 f"Unexpected token in expression: {self.current_token[0]}"
@@ -510,13 +531,30 @@ class MetalParser:
         return VectorConstructorNode(type_name, args)
 
     def parse_function_call_or_identifier(self):
-        name = self.current_token[1]
-        self.eat("IDENTIFIER")
-        if self.current_token[0] == "LPAREN":
-            return self.parse_function_call(name)
-        elif self.current_token[0] == "DOT":
-            return self.parse_member_access(name)
-        return VariableNode("", name)
+        if self.current_token[0] == "IDENTIFIER":
+            name = self.current_token[1]
+            self.eat("IDENTIFIER")
+
+            if self.current_token[0] == "LPAREN":
+                return self.parse_function_call(name)
+            elif self.current_token[0] == "DOT":
+                return self.parse_member_access(name)
+            elif self.current_token[0] == "COLON":
+                self.eat("COLON")
+                type_annotation = self.current_token[1]
+                self.eat(self.current_token[0])
+                return VariableNode(type_annotation, name)
+            return VariableNode("", name)
+
+        elif self.current_token[0] == "NUMBER":
+            value = self.current_token[1]
+            self.eat("NUMBER")
+            return value
+
+        else:
+            raise SyntaxError(
+                f"Expected IDENTIFIER or NUMBER, got {self.current_token[0]}"
+            )
 
     def parse_function_call(self, name):
         self.eat("LPAREN")
@@ -524,7 +562,11 @@ class MetalParser:
         while self.current_token[0] != "RPAREN":
             args.append(self.parse_expression())
             if self.current_token[0] == "COMMA":
-                self.eat("COMMA")
+                self.eat("COMMA")  # Continue parsing the next argument
+            elif self.current_token[0] != "RPAREN":
+                raise SyntaxError(
+                    f"Expected COMMA or RPAREN, got {self.current_token[0]}"
+                )
         self.eat("RPAREN")
         return FunctionCallNode(name, args)
 
@@ -532,23 +574,58 @@ class MetalParser:
         self.eat("DOT")
         if self.current_token[0] != "IDENTIFIER":
             raise SyntaxError(
-                f"Expected identifier after dot, got {self.current_token[0]}"
+                f"Expected IDENTIFIER after dot, got {self.current_token[0]}"
             )
+
         member = self.current_token[1]
         self.eat("IDENTIFIER")
+
+        if self.current_token[0] == "LPAREN":
+            return self.parse_function_call(member)
 
         if self.current_token[0] == "DOT":
             return self.parse_member_access(MemberAccessNode(object, member))
 
         return MemberAccessNode(object, member)
 
-    def parse_texture_sample(self):
-        texture = self.parse_expression()
-        self.eat("DOT")
-        self.eat("IDENTIFIER")  # 'sample' method
-        self.eat("LPAREN")
-        sampler = self.parse_expression()
-        self.eat("COMMA")
-        coordinates = self.parse_expression()
-        self.eat("RPAREN")
-        return TextureSampleNode(texture, sampler, coordinates)
+    def parse_decorator(self):
+        self.eat("DECORATOR")
+        name = self.current_token[1]
+        args = []
+        if self.current_token[0] == "LPAREN":
+            self.eat("LPAREN")
+            while self.current_token[0] != "RPAREN":
+                args.append(self.parse_expression())
+                if self.current_token[0] == "COMMA":
+                    self.eat("COMMA")
+            self.eat("RPAREN")
+        return DecoratorNode(name, args)
+
+
+# Temp test
+code = """
+import MyModule as mm
+
+@decorator_example
+class ExampleClass(BaseClass):
+    let x: Int
+    var y: Float = 0.0
+
+    fn add_values(self, a: Int, b: Float) -> Float:
+        return a + b + self.y
+
+
+struct ExampleStruct:
+    let z: Float
+
+fn main():
+    let instance = ExampleClass(x: 10)
+    let result = instance.add_values(5 , 3.2)
+    return result
+"""
+
+lexer = MojoLexer(code)
+parser = MojoParser(lexer.tokens)
+ast = parser.parse()
+
+print(ast)
