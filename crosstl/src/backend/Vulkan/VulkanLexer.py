@@ -4,8 +4,8 @@ TOKENS = [
     ("COMMENT_SINGLE", r"//.*"),
     ("COMMENT_MULTI", r"/\*[\s\S]*?\*/"),
     ("WHITESPACE", r"\s+"),
-    ("SEMANTIC", r":\w+"),  
-    ("IDENTIFIER", r"[a-zA-Z_][a-zA-Z0-9_]*"),  
+    ("SEMANTIC", r":\w+"),
+    ("IDENTIFIER", r"[a-zA-Z_][a-zA-Z0-9_]*"),
     ("NUMBER", r"\d+(\.\d*)?|\.\d+"),
     ("SEMICOLON", r";"),
     ("LBRACE", r"\{"),
@@ -14,7 +14,7 @@ TOKENS = [
     ("RPAREN", r"\)"),
     ("COMMA", r","),
     ("DOT", r"\."),
-    ("PLUS_EQUALS", r"\+="),  
+    ("PLUS_EQUALS", r"\+="),
     ("MINUS_EQUALS", r"-="),
     ("MULTIPLY_EQUALS", r"\*="),
     ("DIVIDE_EQUALS", r"/="),
@@ -23,7 +23,7 @@ TOKENS = [
     ("MINUS", r"-"),
     ("MULTIPLY", r"\*"),
     ("DIVIDE", r"/"),
-    ("LESS_EQUAL", r"<="),  
+    ("LESS_EQUAL", r"<="),
     ("GREATER_EQUAL", r">="),
     ("NOT_EQUAL", r"!="),
     ("LESS_THAN", r"<"),
@@ -105,6 +105,7 @@ KEYWORDS = {
     "image2DMSArray": "IMAGE2DMSARRAY",
     "atomic_uint": "ATOMICUINT",
 }
+
 
 class VulkanLexer:
     def __init__(self, code):

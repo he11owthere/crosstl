@@ -55,7 +55,7 @@ class VulkanParser:
             if self.current_token[0] == "COMMA":
                 self.eat("COMMA")
         self.eat("RPAREN")
-        self.eat("IDENTIFIER") 
+        self.eat("IDENTIFIER")
         name = self.current_token[1]
         self.eat("IDENTIFIER")
         self.eat("SEMICOLON")
@@ -138,27 +138,27 @@ class VulkanParser:
                 return self.parse_for_statement()
         else:
             return self.parse_expression_statement()
-        
+
     def parse_if_statement(self):
         self.eat("IF")
         self.eat("LPAREN")
-        condition = self.parse_expression()  
+        condition = self.parse_expression()
         self.eat("RPAREN")
-        if_body = self.parse_block() 
+        if_body = self.parse_block()
         else_body = None
         if self.current_token[0] == "ELSE":
             self.eat("ELSE")
-            else_body = self.parse_block()  
+            else_body = self.parse_block()
         return IfNode(condition, if_body, else_body)
-    
+
     def parse_for_statement(self):
         self.eat("FOR")
         self.eat("LPAREN")
-        initialization = self.parse_expression_statement()  
+        initialization = self.parse_expression_statement()
         condition = self.parse_expression()
-        self.eat("SEMICOLON")  
+        self.eat("SEMICOLON")
         increment = self.parse_expression()
-        self.eat("RPAREN") 
+        self.eat("RPAREN")
         body = self.parse_block()
         return ForNode(initialization, condition, increment, body)
 
@@ -194,7 +194,7 @@ class VulkanParser:
             return value
         else:
             raise SyntaxError(f"Unexpected token: {self.current_token[0]}")
-        
+
     def parse_while_statement(self):
         self.eat("WHILE")
         self.eat("LPAREN")
@@ -212,7 +212,7 @@ class VulkanParser:
         self.eat("RPAREN")
         self.eat("SEMICOLON")
         return DoWhileNode(condition, body)
-    
+
     def parse_switch_statement(self):
         self.eat("SWITCH")
         self.eat("LPAREN")
@@ -238,5 +238,3 @@ class VulkanParser:
         while self.current_token[0] not in ["CASE", "DEFAULT", "RBRACE"]:
             statements.append(self.parse_statement())
         return CaseNode(value, statements)
-    
-    

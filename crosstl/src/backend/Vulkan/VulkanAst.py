@@ -1,6 +1,7 @@
 class ASTNode:
     pass
 
+
 class TernaryOpNode:
     def __init__(self, condition, true_expr, false_expr):
         self.condition = condition
@@ -9,7 +10,8 @@ class TernaryOpNode:
 
     def __repr__(self):
         return f"TernaryOpNode(condition={self.condition}, true_expr={self.true_expr}, false_expr={self.false_expr})"
-    
+
+
 class ShaderNode:
     def __init__(
         self,
@@ -18,14 +20,15 @@ class ShaderNode:
         shader_stages,
         functions,
     ):
-        self.spirv_version = spirv_version  
-        self.descriptor_sets = descriptor_sets  
-        self.shader_stages = shader_stages  
-        self.functions = functions  
+        self.spirv_version = spirv_version
+        self.descriptor_sets = descriptor_sets
+        self.shader_stages = shader_stages
+        self.functions = functions
 
     def __repr__(self):
         return f"ShaderNode(spirv_version={self.spirv_version}, descriptor_sets={self.descriptor_sets}, shader_stages={self.shader_stages}, functions={self.functions})"
-    
+
+
 class IfNode(ASTNode):
     def __init__(self, condition, if_body, else_body=None):
         self.condition = condition
@@ -34,7 +37,8 @@ class IfNode(ASTNode):
 
     def __repr__(self):
         return f"IfNode(condition={self.condition}, if_body={self.if_body}, else_body={self.else_body})"
-    
+
+
 class ForNode(ASTNode):
     def __init__(self, init, condition, update, body):
         self.init = init
@@ -44,14 +48,16 @@ class ForNode(ASTNode):
 
     def __repr__(self):
         return f"ForNode(init={self.init}, condition={self.condition}, update={self.update}, body={self.body})"
-    
+
+
 class ReturnNode(ASTNode):
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
         return f"ReturnNode(value={self.value})"
-    
+
+
 class FunctionCallNode(ASTNode):
     def __init__(self, name, args):
         self.name = name
@@ -59,6 +65,7 @@ class FunctionCallNode(ASTNode):
 
     def __repr__(self):
         return f"FunctionCallNode(name={self.name}, args={self.args})"
+
 
 class BinaryOpNode(ASTNode):
     def __init__(self, left, op, right):
@@ -68,7 +75,8 @@ class BinaryOpNode(ASTNode):
 
     def __repr__(self):
         return f"BinaryOpNode(left={self.left}, op={self.op}, right={self.right})"
-    
+
+
 class UnaryOpNode(ASTNode):
     def __init__(self, op, operand):
         self.op = op
@@ -80,43 +88,49 @@ class UnaryOpNode(ASTNode):
     def __str__(self):
         return f"({self.op}{self.operand})"
 
+
 class DescriptorSetNode(ASTNode):
     def __init__(self, set_number, bindings):
-        self.set_number = set_number  
-        self.bindings = bindings 
+        self.set_number = set_number
+        self.bindings = bindings
 
     def __repr__(self):
-        return f"DescriptorSetNode(set_number={self.set_number}, bindings={self.bindings})"
-    
+        return (
+            f"DescriptorSetNode(set_number={self.set_number}, bindings={self.bindings})"
+        )
+
+
 class LayoutNode(ASTNode):
     def __init__(self, sets, push_constants):
-        self.sets = sets  
-        self.push_constants = push_constants  
+        self.sets = sets
+        self.push_constants = push_constants
 
     def __repr__(self):
         return f"LayoutNode(sets={self.sets}, push_constants={self.push_constants})"
 
-    
+
 class ShaderStageNode(ASTNode):
     def __init__(self, stage, entry_point):
-        self.stage = stage  
-        self.entry_point = entry_point  
+        self.stage = stage
+        self.entry_point = entry_point
 
     def __repr__(self):
         return f"ShaderStageNode(stage={self.stage}, entry_point={self.entry_point})"
-    
+
+
 class PushConstantNode(ASTNode):
     def __init__(self, size, values):
-        self.size = size  
-        self.values = values  
+        self.size = size
+        self.values = values
 
     def __repr__(self):
         return f"PushConstantNode(size={self.size}, values={self.values})"
-        
+
+
 class StructNode(ASTNode):
     def __init__(self, name, members):
-        self.name = name  
-        self.members = members  
+        self.name = name
+        self.members = members
 
     def __repr__(self):
         return f"StructNode(name={self.name}, members={self.members})"
@@ -124,10 +138,10 @@ class StructNode(ASTNode):
 
 class FunctionNode(ASTNode):
     def __init__(self, name, return_type, parameters, body):
-        self.name = name  
-        self.return_type = return_type 
-        self.parameters = parameters 
-        self.body = body  
+        self.name = name
+        self.return_type = return_type
+        self.parameters = parameters
+        self.body = body
 
     def __repr__(self):
         return f"FunctionNode(name={self.name}, return_type={self.return_type}, parameters={self.parameters}, body={self.body})"
@@ -135,22 +149,24 @@ class FunctionNode(ASTNode):
 
 class VariableNode(ASTNode):
     def __init__(self, name, var_type, initializer=None):
-        self.name = name  
-        self.var_type = var_type 
-        self.initializer = initializer  
+        self.name = name
+        self.var_type = var_type
+        self.initializer = initializer
 
     def __repr__(self):
         return f"VariableNode(name={self.name}, var_type={self.var_type}, initializer={self.initializer})"
-    
+
+
 class VariableDeclarationNode(ASTNode):
     def __init__(self, name, var_type, initializer=None):
-        self.name = name  
-        self.var_type = var_type  
-        self.initializer = initializer  
+        self.name = name
+        self.var_type = var_type
+        self.initializer = initializer
 
     def __repr__(self):
         return f"VariableDeclarationNode(name={self.name}, var_type={self.var_type}, initializer={self.initializer})"
-    
+
+
 class SwitchNode(ASTNode):
     def __init__(self, expression, cases):
         self.expression = expression
@@ -158,7 +174,8 @@ class SwitchNode(ASTNode):
 
     def __repr__(self):
         return f"SwitchNode(expression={self.expression}, cases={self.cases})"
-    
+
+
 class CaseNode(ASTNode):
     def __init__(self, value, body):
         self.value = value
@@ -166,7 +183,8 @@ class CaseNode(ASTNode):
 
     def __repr__(self):
         return f"CaseNode(value={self.value}, body={self.body})"
-    
+
+
 class WhileNode(ASTNode):
     def __init__(self, condition, body):
         self.condition = condition
@@ -174,7 +192,8 @@ class WhileNode(ASTNode):
 
     def __repr__(self):
         return f"WhileNode(condition={self.condition}, body={self.body})"
-    
+
+
 class DoWhileNode(ASTNode):
     def __init__(self, body, condition):
         self.body = body
@@ -182,7 +201,8 @@ class DoWhileNode(ASTNode):
 
     def __repr__(self):
         return f"DoWhileNode(body={self.body}, condition={self.condition})"
-    
+
+
 class AssignmentNode(ASTNode):
     def __init__(self, left, right, operator="="):
         self.left = left
@@ -191,5 +211,3 @@ class AssignmentNode(ASTNode):
 
     def __repr__(self):
         return f"AssignmentNode(left={self.left}, operator='{self.operator}', right={self.right})"
-    
-
